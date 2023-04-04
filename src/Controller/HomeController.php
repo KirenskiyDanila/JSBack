@@ -40,7 +40,7 @@ class HomeController extends AbstractController
 
     // REST-метод для добавления резюме
     #[Route('/api/cv/add', name: 'post_resume', methods: ['POST'])]
-    public function postResume(Request $request, ResumeRepository $resumeRepository, EducationOptionRepository $optionRepository): JsonResponse
+    public function postResume(Request $request, ResumeRepository $resumeRepository, ManagerRegistry $doctrine, EducationOptionRepository $optionRepository): JsonResponse
     {
         $parameters = json_decode($request->getContent(), true);
 
@@ -56,13 +56,14 @@ class HomeController extends AbstractController
         if ($resume->getEducation() !== 'Среднее') {
             $educationOption = $optionRepository->createEducationOption($parameters['education'], $resume, $educationOption);
             $optionRepository->add($educationOption, true);
-            $educationOption = new EducationOption();
-            if ($parameters['education']['secondEducationEnabled'] == true) {
-                $educationOption = $optionRepository->createEducationOption($parameters['optional'], $resume, $educationOption);
-                $optionRepository->add($educationOption, true);
+
+            foreach ($parameters['optional'] as $optionalEducation) {
+                $newOption = new EducationOption();
+                $newOption = $optionRepository->createEducationOption($optionalEducation['education'], $resume, $newOption);
+                $doctrine->getManager()->persist($newOption);
+                $doctrine->getManager()->flush();
             }
         }
-
         return new JsonResponse([
             'result' => $resume->getId(),
         ]);
@@ -86,17 +87,14 @@ class HomeController extends AbstractController
             }
             $educationOption = new EducationOption();
             $educationOption = $optionRepository->createEducationOption($parameters['education'], $resume, $educationOption);
-          //  $optionRepository->add($educationOption, true);
             $doctrine->getManager()->persist($educationOption);
             $doctrine->getManager()->flush();
 
-            if ($parameters['education']['secondEducationEnabled'] == true) {
+            foreach ($parameters['optional'] as $optionalEducation) {
                 $newOption = new EducationOption();
-                $newOption = $optionRepository->createEducationOption($parameters['optional'], $resume, $newOption);
-           //     $optionRepository->add($newOption, true);
+                $newOption = $optionRepository->createEducationOption($optionalEducation['education'], $resume, $newOption);
                 $doctrine->getManager()->persist($newOption);
                 $doctrine->getManager()->flush();
-
             }
 
         }
